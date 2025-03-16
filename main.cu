@@ -16,6 +16,7 @@ using namespace std;
   |                                                           |
   |   On march 11th 2025 I learned to use NVIDIA CUDA.        |
   |   On march 12th 2025 I finally uploaded this to github.   |
+  |   On match 16th 2025 I "converted" this project to CUDA.  |
   |                                                           |
   |   PLANS:                                                  |
   |    - Make this engine run on a GPU.                       |
