@@ -1,9 +1,10 @@
 #include "stuff.cu"
 #include "window.cu"
 #include "render.cu"
+#include "stdio.h"
 using namespace std;
 
-// COMPILER COMMAND: cd "${workspaceFolder}" ; if ($?) { nvcc main.cu -o main -lGdi32 -luser32} ; if ($?) { .\main }
+// COMPILER COMMAND: cd "${workspaceFolder}" ; if ($?) {nvcc main.cu -o main -lGdi32 -luser32} ; if ($?) { .\main }
 
 /*[==========================HISTORY==========================]
   |                                                           |
@@ -26,16 +27,20 @@ using namespace std;
 int main() {
     wiindow* window = new wiindow();
     HDC hdc = GetDC(ehwnd);
+
     bool running = true;
+    unsigned int *gpuscr = 0;
+    cudaMalloc(&gpuscr, size_t(sizeof(unsigned int)*bwidth*bheight));
+    cudaMemcpy(gpuscr, buffermem, size_t(sizeof(unsigned int)*bwidth*bheight), cudaMemcpyHostToDevice);
+
     while (running){
         if (!window->ProcessMessages()){
             running = false;
         }
 
-        clearscreen(0x000000);
-        tri(0,0,0,100,100,100,0,0,0,255,0,0,255,255,0,grass);
+        clrscr<<<bwidth, bheight>>>(gpuscr, 0x0000ff);
+        cudaMemcpy(buffermem, gpuscr, size_t(sizeof(unsigned int)*bwidth*bheight), cudaMemcpyDeviceToHost);
         StretchDIBits(hdc, 0, 0, bwidth, bheight, 0, 0, bwidth, bheight, buffermem, &bufbitinf, DIB_RGB_COLORS, SRCCOPY);
-        Sleep(1);
     }
     delete window;
     return 0;

@@ -3,7 +3,6 @@
 #include "stuff.cu"
 #include "buttons.cu"
 void* buffermem;
-void* zBuffr;
 int bwidth;
 int bheight;
 bool keyW, keyA, keyS, keyD;
@@ -17,7 +16,6 @@ typedef struct
 } BITMAPDATA;
 HWND ehwnd;
 BITMAPINFO bufbitinf;
-BITMAPINFO zBuffer;
 Input input = {};
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 class wiindow{
@@ -57,14 +55,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
         bufbitinf.bmiHeader.biPlanes = 1;
         bufbitinf.bmiHeader.biBitCount = 32;
         bufbitinf.bmiHeader.biCompression = BI_RGB;
-        if (zBuffr) VirtualFree(zBuffr, 0, MEM_RELEASE);
-        zBuffr = VirtualAlloc(0, buffer_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-        zBuffer.bmiHeader.biSize = sizeof(zBuffer.bmiHeader);
-        zBuffer.bmiHeader.biWidth = bwidth;
-        zBuffer.bmiHeader.biHeight = -bheight;
-        zBuffer.bmiHeader.biPlanes = 1;
-        zBuffer.bmiHeader.biBitCount = 32;
-        zBuffer.bmiHeader.biCompression = BI_RGB;
     }
     return DefWindowProc(hWnd, uMsg, wParam, lParam);};
 wiindow::wiindow(): m_hInstance(GetModuleHandle(nullptr)){
@@ -83,7 +73,7 @@ wiindow::wiindow(): m_hInstance(GetModuleHandle(nullptr)){
     rect.right = rect.left + wid;
     rect.bottom = rect.top + hgh;
     AdjustWindowRect(&rect, style, false);
-    m_hWnd = CreateWindowEx(0, CLASS_NAME, "minercaft 2", style, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, m_hInstance, NULL);
+    m_hWnd = CreateWindowEx(0, CLASS_NAME, "Crappy C++ 3D Engine", style, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, m_hInstance, NULL);
     ehwnd = m_hWnd;
     ShowWindow(m_hWnd, SW_SHOW);}
 wiindow::~wiindow(){

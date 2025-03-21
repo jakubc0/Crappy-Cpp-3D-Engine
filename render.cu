@@ -2,12 +2,12 @@
 #include "stuff.cu"
 #include "window.cu"
 #include <cmath>
-void clearscreen(unsigned int color){
+void cpuclearscreen(unsigned int color){
     unsigned int* pixel = (unsigned int*)buffermem;
     for (int y = 0; y < bheight; y++) {
         for (int x = 0; x < bwidth; x++){
             *pixel++ = color;}}}
-void drawLine(int x1, int y1, int x2, int y2, unsigned int c){
+void cpudrawLine(int x1, int y1, int x2, int y2, unsigned int c){
     if(y1 == y2) {
         if(x1 <= x2) {
             if(x1>=0 && x2 < bwidth){
@@ -49,7 +49,7 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned int c){
         }
     }
 }
-void drawRect(int xpos, int ypos, int rWidth, int rHeight, unsigned int color){
+void cpudrawRect(int xpos, int ypos, int rWidth, int rHeight, unsigned int color){
     if(xpos >= bwidth || ypos >= bheight) return;
     rWidth = clamp(0,rWidth,bwidth-xpos);
     rHeight = clamp(0,rHeight,bheight-ypos);
@@ -61,7 +61,7 @@ void drawRect(int xpos, int ypos, int rWidth, int rHeight, unsigned int color){
         for (int x = xpos; x < xpos+rWidth; x++){
             *pixel++ = color;}}
 }
-void drawImg(int xpos, int ypos, int rWidth, int rHeight, bitmap_image img){
+void cpudrawImg(int xpos, int ypos, int rWidth, int rHeight, bitmap_image img){
     if(xpos >= bwidth || ypos >= bheight) return;
     unsigned int color;
     rgb_t c;
@@ -77,7 +77,7 @@ void drawImg(int xpos, int ypos, int rWidth, int rHeight, bitmap_image img){
             color = convertColor(c.red,c.green,c.blue);
             *pixel++ = color;}}
 }
-void tri(int x0, int y0, int x1, int y1, int x2, int y2, int r0, int g0, int b0, int r1, int g1, int b1, int r2, int g2, int b2, bitmap_image img){
+void cputri(int x0, int y0, int x1, int y1, int x2, int y2, int r0, int g0, int b0, int r1, int g1, int b1, int r2, int g2, int b2, bitmap_image img){
     r0 = clamp(0,r0,255);
     g0 = clamp(0,g0,255);
     b0 = clamp(0,b0,255);
@@ -287,5 +287,10 @@ void tri(int x0, int y0, int x1, int y1, int x2, int y2, int r0, int g0, int b0,
             }
         }
     }
+}
+
+__global__ void clrscr(unsigned int* address, unsigned int color){
+    unsigned int* pixel = address+blockIdx.x+threadIdx.x*640;
+    *pixel = color;
 }
 // the drawing file
