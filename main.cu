@@ -32,13 +32,15 @@ int main() {
     unsigned int *gpuscr = 0;
     cudaMalloc(&gpuscr, size_t(sizeof(unsigned int)*bwidth*bheight));
     cudaMemcpy(gpuscr, buffermem, size_t(sizeof(unsigned int)*bwidth*bheight), cudaMemcpyHostToDevice);
+    unsigned int* grassimage = uploadToGPU(grass);
 
     while (running){
         if (!window->ProcessMessages()){
             running = false;
         }
-
-        clrscr<<<bwidth, bheight>>>(gpuscr, 0x0000ff);
+        
+        clearRect<<<bwidth, bheight>>>(gpuscr, 0x0000ff, 0, 0);
+        drawImg<<<50, 50>>>(gpuscr, grassimage, 80, 100, 50, 50, 16, 16);
         cudaMemcpy(buffermem, gpuscr, size_t(sizeof(unsigned int)*bwidth*bheight), cudaMemcpyDeviceToHost);
         StretchDIBits(hdc, 0, 0, bwidth, bheight, 0, 0, bwidth, bheight, buffermem, &bufbitinf, DIB_RGB_COLORS, SRCCOPY);
     }

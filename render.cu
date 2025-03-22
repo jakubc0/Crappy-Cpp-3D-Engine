@@ -289,8 +289,15 @@ void cputri(int x0, int y0, int x1, int y1, int x2, int y2, int r0, int g0, int 
     }
 }
 
-__global__ void clrscr(unsigned int* address, unsigned int color){
-    unsigned int* pixel = address+blockIdx.x+threadIdx.x*640;
-    *pixel = color;
-}
+__global__ void clearRect(unsigned int* address, unsigned int color, int posX, int posY){
+    unsigned int* pixel = address+blockIdx.x+posX+(threadIdx.x+posY)*640;
+    if(threadIdx.x+posY<480&&blockIdx.x+posX<640) *pixel = color;
+} //clearrect<<<width, height>>>(pointer, color, X, Y)
+
+__global__ void drawImg(unsigned int* address, unsigned int* image, int posX, int posY, int W, int H, int imageW, int imageH){
+    unsigned int* pixel = address+blockIdx.x+posX+(threadIdx.x+posY)*640;
+    unsigned int color = image[int(float(imageW)*float(blockIdx.x)/float(W)) + int(float(imageH)*float(threadIdx.x)/float(H))*imageW];
+    if(threadIdx.x+posY<480&&blockIdx.x+posX<640) *pixel = color;
+} //drawImg<<<width, height>>>(pointer, image, X, Y, width, height)
+
 // the drawing file

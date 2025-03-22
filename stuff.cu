@@ -12,9 +12,6 @@ typedef unsigned long long u64;
 using namespace std;
 double pi = 3.14159;
 
-bitmap_image grass("image.bmp");
-
-
 inline int
 clamp(int min, int v, int max) {
     if (v < min) return min;
@@ -27,6 +24,24 @@ unsigned int convertColor(int r, int g, int b) {
     int col = r + g + b;
     return (unsigned int)col;
 }
+
+bitmap_image grass("image.bmp");
+
+unsigned int* uploadToGPU(bitmap_image img){
+    unsigned int *GPUPointer = 0;
+    unsigned int color = 0x000000;
+    rgb_t c;
+    cudaMalloc(&GPUPointer, img.width()*img.height()*sizeof(unsigned int));
+    for(int i=0;i<img.width();i++){
+        for(int j=0;j<img.height();j++){
+            c = img.get_pixel(i, j);
+            color = convertColor(c.red, c.green, c.blue);
+            cudaMemcpy(GPUPointer+i+j*img.width(), &color, sizeof(unsigned int), cudaMemcpyHostToDevice);
+        }
+    }
+    return GPUPointer;
+}
+
 unsigned int uvbmp(int u, int v, int z, bitmap_image image) {
     if(!image){
         return 0x000000;
