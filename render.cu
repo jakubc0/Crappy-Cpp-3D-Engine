@@ -291,13 +291,31 @@ void cputri(int x0, int y0, int x1, int y1, int x2, int y2, int r0, int g0, int 
 
 __global__ void clearRect(unsigned int* address, unsigned int color, int posX, int posY){
     unsigned int* pixel = address+blockIdx.x+posX+(threadIdx.x+posY)*640;
-    if(threadIdx.x+posY<480&&blockIdx.x+posX<640) *pixel = color;
+    if(threadIdx.x+posY<480&&blockIdx.x+posX<640&&int(blockIdx.x)+posX>=0&&int(threadIdx.x)+posY>=0) *pixel = color;
 } //clearrect<<<width, height>>>(pointer, color, X, Y)
 
 __global__ void drawImg(unsigned int* address, unsigned int* image, int posX, int posY, int W, int H, int imageW, int imageH){
     unsigned int* pixel = address+blockIdx.x+posX+(threadIdx.x+posY)*640;
     unsigned int color = image[int(float(imageW)*float(blockIdx.x)/float(W)) + int(float(imageH)*float(threadIdx.x)/float(H))*imageW];
-    if(threadIdx.x+posY<480&&blockIdx.x+posX<640) *pixel = color;
+    if(threadIdx.x+posY<480&&blockIdx.x+posX<640&&int(blockIdx.x)+posX>=0&&int(threadIdx.x)+posY>=0) *pixel = color;
 } //drawImg<<<width, height>>>(pointer, image, X, Y, width, height)
 
+__global__ void triangle(unsigned int* address, vertexdat p1, vertexdat p2, vertexdat p3){
+    int x, y;
+    float t, s;
+    if(abs(p2.x-p1.x)>abs(p2.y-p1.y)){
+        t = float(threadIdx.x)/float(abs(p2.x-p1.x)+2);
+    }else{
+        t = float(threadIdx.x)/float(abs(p2.y-p1.y)+2);
+    }
+    if(abs(p3.x-p1.x)>abs(p3.y-p1.y)){
+        s = float(blockIdx.x)/float(abs(p3.x-p1.x)+2);
+    }else{
+        s = float(blockIdx.x)/float(abs(p3.y-p1.y)+2);
+    }
+    x = p1.x + int(t*float(p2.x-p1.x)) + int(s*float(p3.x-p1.x));
+    y = p1.y + int(t*float(p2.y-p1.y)) + int(s*float(p3.y-p1.y));
+    unsigned int* pixel = address + x + y*640;
+    if(y<480&&x<640&&x>=0&&y>=0&&s+t<1) *pixel = 65536*int(p1.u*(1-s-t)+p2.u*t+p3.u*s) + 256*int(p1.v*(1-s-t)+p2.v*t+p3.v*s) + (p1.depth*(1-s-t)+p2.depth*t+p3.depth*s);
+}
 // the drawing file

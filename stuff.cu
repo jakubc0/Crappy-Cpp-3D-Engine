@@ -12,6 +12,14 @@ typedef unsigned long long u64;
 using namespace std;
 double pi = 3.14159;
 
+struct vertexdat{
+    int x;
+    int y;
+    int u;
+    int v;
+    int depth;
+};
+
 inline int
 clamp(int min, int v, int max) {
     if (v < min) return min;

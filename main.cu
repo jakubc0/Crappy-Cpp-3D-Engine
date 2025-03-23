@@ -39,8 +39,9 @@ int main() {
             running = false;
         }
         
-        clearRect<<<bwidth, bheight>>>(gpuscr, 0x0000ff, 0, 0);
+        clearRect<<<bwidth, bheight>>>(gpuscr, 0x303030, 0, 0);
         drawImg<<<50, 50>>>(gpuscr, grassimage, 80, 100, 50, 50, 16, 16);
+        triangle<<<142, 252>>>(gpuscr, {250, 60, 255, 0, 0}, {500, 100, 0, 255, 0}, {350, 200, 0, 0, 255});
         cudaMemcpy(buffermem, gpuscr, size_t(sizeof(unsigned int)*bwidth*bheight), cudaMemcpyDeviceToHost);
         StretchDIBits(hdc, 0, 0, bwidth, bheight, 0, 0, bwidth, bheight, buffermem, &bufbitinf, DIB_RGB_COLORS, SRCCOPY);
     }
