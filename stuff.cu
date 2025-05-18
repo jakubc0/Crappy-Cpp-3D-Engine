@@ -10,7 +10,8 @@ typedef unsigned long long u64;
 #include <cmath>
 #include "bitmap_image.hpp"
 using namespace std;
-double pi = 3.14159;
+
+double pi = 3.1415926535;
 
 struct vertexdat{
     int x;
@@ -19,6 +20,35 @@ struct vertexdat{
     int v;
     int depth;
 };
+
+struct vertex{
+    float x;
+    float y;
+    float z;
+};
+
+struct matrix{
+    float m[4][4];
+};
+
+struct model{
+    vertex* vertices;
+    u32* faces;
+    float* uv;
+};
+
+matrix mulm(matrix A, matrix B) {
+    matrix result;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            result.m[i][j] = 0;
+            for (int k = 0; k < 4; ++k) {
+                result.m[i][j] += A.m[i][k] * B.m[k][j];
+            }
+        }
+    }
+    return result;
+}
 
 inline int
 clamp(int min, int v, int max) {
