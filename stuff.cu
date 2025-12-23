@@ -11,6 +11,9 @@ typedef unsigned long long u64;
 #include "bitmap_image.hpp"
 using namespace std;
 
+#define mxv(a, b) (a>b ? a : b)
+#define mnv(a, b) (a<b ? a : b)
+
 double pi = 3.1415926535;
 
 struct vertexdat{
@@ -48,6 +51,14 @@ matrix mulm(matrix A, matrix B) {
         }
     }
     return result;
+}
+
+matrix mgen(float tx, float ty, float tz, float rx, float ry, float rz, float sx, float sy, float sz){
+    matrix out = {1, 0, 0, 0, 0, cosf(rx), sinf(rx), 0, 0, -sinf(rx), cos(rx), 0, 0, 0, 0, 1};
+    out = mulm(out, {cosf(ry), 0, -sinf(ry), 0, 0, 1, 0, 0, sinf(ry), 0, cos(ry), 0, 0, 0, 0, 1});
+    out = mulm(out, {cosf(ry), -sinf(ry), 0, 0, sinf(ry), cosf(ry), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
+
+    return mulm(out, {sx, 0, 0, tx, 0, sy, 0, ty, 0, 0, sz, tz, 0, 0, 0, 1});
 }
 
 inline int

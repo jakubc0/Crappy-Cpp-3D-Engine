@@ -21,8 +21,11 @@ using namespace std;
   |                                                           |
   |   May 17th - "model" rendering (took very long)           |
   |                                                           |
-  |   PLANS:                                                  |
+  |   December 23rd 2025 - fixed most holes in triangles      |
   |                                                           |
+  |   PLANS:                                                  |
+  |   Loading models from .objs                               |
+  |   Custom shaders and an "Object class"                    |
   |                                                           |
 *///==========================================================]
 
@@ -73,7 +76,7 @@ int main() {
     cudaMalloc(&tttttt, sizeof(model));
     cudaMemcpy(tttttt, &tri, sizeof(model), cudaMemcpyHostToDevice);
 
-    double theta = 0;
+    double theta = 0.5;
     matrix rot = {float(std::cos(theta)), 0, float(std::sin(theta)), 0, 0, 1, 0, 0, -float(std::sin(theta)), 0, float(std::cos(theta)), 0, 0, 0, 0, 1};
     matrix pos = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 3, 0, 0, 0, 1};
 
@@ -92,10 +95,10 @@ int main() {
             }
             cout << b << " "; if(i%3==2) cout << " ";
         } cout << "\n";}cout << "\n";*/
-        mdraw<<<12, 1>>>(gpuscr, mulm(pos, rot), tttttt, grassimage, 16, 16, bwidth, bheight, 100, zbuffr);
+        mdraw<<<12, 1>>>(gpuscr, mulm(pos, rot), tttttt, grassimage, 16, 16, bwidth, bheight, 300, zbuffr);
         cudaMemcpy(buffermem, gpuscr, size_t(sizeof(unsigned int)*bwidth*bheight), cudaMemcpyDeviceToHost);
         StretchDIBits(hdc, 0, 0, bwidth, bheight, 0, 0, bwidth, bheight, buffermem, &bufbitinf, DIB_RGB_COLORS, SRCCOPY);
-        theta+=0.05;
+        theta+=0.02;
         Sleep(10);
     }
     delete window;

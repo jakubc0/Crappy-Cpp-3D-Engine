@@ -2,6 +2,7 @@
 #include "stuff.cu"
 #include "window.cu"
 #include <cmath>
+
 void cpuclearscreen(unsigned int color){
     unsigned int* pixel = (unsigned int*)buffermem;
     for (int y = 0; y < bheight; y++) {
@@ -300,6 +301,115 @@ __global__ void drawImg(unsigned int* address, unsigned int* image, int posX, in
     if(threadIdx.x+posY<480&&blockIdx.x+posX<640&&int(blockIdx.x)+posX>=0&&int(threadIdx.x)+posY>=0) *pixel = color;
 } //drawImg<<<width, height>>>(pointer, image, X, Y, width, height)
 
+__global__ void triangle(unsigned int* address, vertexdat p1, vertexdat p2, vertexdat p3,
+    unsigned int* image, unsigned int imgW, unsigned int imgH, unsigned int* zbuffer) {
+    int x, y, ix, iy;
+    x = threadIdx.x+mnv(mnv(p1.x, p2.x), p3.x);
+    y = blockIdx.x+mnv(mnv(p1.y, p2.y), p3.y);
+
+    float v0x = p2.x - p1.x;
+    float v0y = p2.y - p1.y;
+    float v1x = p3.x - p1.x;
+    float v1y = p3.y - p1.y;
+    float v2x = x - p1.x;
+    float v2y = y - p1.y;
+
+    float d00 = v0x*v0x + v0y*v0y;
+    float d01 = v0x*v1x + v0y*v1y;
+    float d11 = v1x*v1x + v1y*v1y;
+    float d20 = v2x*v0x + v2y*v0y;
+    float d21 = v2x*v1x + v2y*v1y;
+
+    float denom = d00 * d11 - d01 * d01;
+    float t = (d20 * d11 - d21 * d01) / denom;
+    float s = (d21 * d00 - d20 * d01) / denom;
+    float w = 1.0f - t - s;
+
+    if (t < 0 || s < 0 || w < 0) return;
+    if (x < 0 || x >= 640 || y < 0 || y >= 480) return;
+    int z = p1.depth + int(t * float(p2.depth - p1.depth) + s * float(p3.depth - p1.depth));
+    unsigned int* pixel = address + x + y * 640;
+    unsigned int* zpixel = zbuffer + x + y * 640;
+
+    if (z > 0) {
+        unsigned int oldZ = atomicMin(zpixel, z);
+        if(z < oldZ){
+
+            if (imgW == 0x00) {
+                *pixel = imgH;
+            } else {
+                float w1 = 1.0f / p1.depth;
+                float w2 = 1.0f / p2.depth;
+                float w3 = 1.0f / p3.depth;
+
+                float u1 = (float)p1.u / 256.0f, v1 = (float)p1.v / 256.0f;
+                float u2 = (float)p2.u / 256.0f, v2 = (float)p2.v / 256.0f;
+                float u3 = (float)p3.u / 256.0f, v3 = (float)p3.v / 256.0f;
+                float denom = (1 - t - s) * w1 + t * w2 + s * w3;
+                float u = ((1 - t - s) * u1 * w1 + t * u2 * w2 + s * u3 * w3) / denom;
+                float v = ((1 - t - s) * v1 * w1 + t * v2 * w2 + s * v3 * w3) / denom;
+
+                ix = int(u * imgW);
+                iy = int(v * imgH);
+
+                if (ix < 0) ix = 0;
+                if (iy < 0) iy = 0;
+                if (ix >= imgW) ix = imgW - 1;
+                if (iy >= imgH) iy = imgH - 1;
+
+                *pixel = image[ix + iy * imgW];
+            }
+        }
+    }
+}
+
+__global__ void mdraw(unsigned int* address, matrix m, model* mdl, unsigned int* image, unsigned int imgW, unsigned int imgH, u32 sw, u32 sh, float fovm, unsigned int* zbuffer){
+    vertex passvert[3] = {0, 0, 0, 0, 0, 0, 0, 0, 0}; vertex passver[3] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    passvert[0].x = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].x;
+    passvert[0].y = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].y;
+    passvert[0].z = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].z;
+    passvert[1].x = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].x;
+    passvert[1].y = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].y;
+    passvert[1].z = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].z;
+    passvert[2].x = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].x;
+    passvert[2].y = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].y;
+    passvert[2].z = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].z;
+
+    passver[0].x = m.m[0][0] * passvert[0].x + m.m[0][1] * passvert[0].y + m.m[0][2] * passvert[0].z + m.m[0][3];
+    passver[0].y = m.m[1][0] * passvert[0].x + m.m[1][1] * passvert[0].y + m.m[1][2] * passvert[0].z + m.m[1][3];
+    passver[0].z = m.m[2][0] * passvert[0].x + m.m[2][1] * passvert[0].y + m.m[2][2] * passvert[0].z + m.m[2][3];
+
+    passver[1].x = m.m[0][0] * passvert[1].x + m.m[0][1] * passvert[1].y + m.m[0][2] * passvert[1].z + m.m[0][3];
+    passver[1].y = m.m[1][0] * passvert[1].x + m.m[1][1] * passvert[1].y + m.m[1][2] * passvert[1].z + m.m[1][3];
+    passver[1].z = m.m[2][0] * passvert[1].x + m.m[2][1] * passvert[1].y + m.m[2][2] * passvert[1].z + m.m[2][3];
+
+    passver[2].x = m.m[0][0] * passvert[2].x + m.m[0][1] * passvert[2].y + m.m[0][2] * passvert[2].z + m.m[0][3];
+    passver[2].y = m.m[1][0] * passvert[2].x + m.m[1][1] * passvert[2].y + m.m[1][2] * passvert[2].z + m.m[1][3];
+    passver[2].z = m.m[2][0] * passvert[2].x + m.m[2][1] * passvert[2].y + m.m[2][2] * passvert[2].z + m.m[2][3];
+
+    if(passvert[0].z!=0){
+        passver[0].x = (passver[0].x/passver[0].z)*fovm + sw/2;
+        passver[0].y = (passver[0].y/passver[0].z)*fovm + sh/2;
+    }
+    if(passvert[1].z!=0){
+        passver[1].x = (passver[1].x/passver[1].z)*fovm + sw/2;
+        passver[1].y = (passver[1].y/passver[1].z)*fovm + sh/2;
+    }
+    if(passver[2].z!=0){
+        passver[2].x = (passver[2].x/passver[2].z)*fovm + sw/2;
+        passver[2].y = (passver[2].y/passver[2].z)*fovm + sh/2;
+    }
+
+    u32 thx = mxv(mxv(passver[0].x, passver[1].x), passver[2].x)-mnv(mnv(passver[0].x, passver[1].x), passver[2].x);
+    u32 blx = mxv(mxv(passver[0].y, passver[1].y), passver[2].y)-mnv(mnv(passver[0].y, passver[1].y), passver[2].y);
+    triangle<<<blx, thx>>>(address, 
+        {int(passver[0].x), int(passver[0].y), int((*mdl).uv[(*mdl).faces[blockIdx.x*3  ]*2]*255), int((*mdl).uv[(*mdl).faces[blockIdx.x*3  ]*2+1]*255), int(passver[0].z*1000000)},
+        {int(passver[1].x), int(passver[1].y), int((*mdl).uv[(*mdl).faces[blockIdx.x*3+1]*2]*255), int((*mdl).uv[(*mdl).faces[blockIdx.x*3+1]*2+1]*255), int(passver[1].z*1000000)},
+        {int(passver[2].x), int(passver[2].y), int((*mdl).uv[(*mdl).faces[blockIdx.x*3+2]*2]*255), int((*mdl).uv[(*mdl).faces[blockIdx.x*3+2]*2+1]*255), int(passver[2].z*1000000)},
+        image, imgW, imgH, zbuffer);
+}
+
+/*
 __global__ void triangle(unsigned int* address, vertexdat p1, vertexdat p2, vertexdat p3, unsigned int* image, unsigned int imgW, unsigned int imgH, unsigned int* zbuffer){
     int x, y, ix, iy;
     float t, s;
@@ -324,90 +434,10 @@ __global__ void triangle(unsigned int* address, vertexdat p1, vertexdat p2, vert
             if(imgW==0x00) {
                 *pixel = imgH;
             }else{
-                ix = imgW*(p1.u*(1-t-s) + p2.u*t + p3.u*s)/256;
-                iy = imgH*(p1.v*(1-t-s) + p2.v*t + p3.v*s)/256;
-                *pixel = *(image+ix+iy*imgW);
+                ix = imgW * float(p1.u*(1-t-s)+p2.u*(t)+p3.u*(s))/256;
+                iy = imgH * float(p1.v*(1-t-s)+p2.v*(t)+p3.v*(s))/256;
+                *pixel = *(image + ix + iy * imgW);
             }
         }
     }
-}
-
-__global__ void mdraw(unsigned int* address, matrix m, model* mdl, unsigned int* image, unsigned int imgW, unsigned int imgH, u32 sw, u32 sh, float fovm, unsigned int* zbuffer){
-    vertex passvert[3] = {0, 0, 0, 0, 0, 0, 0, 0, 0}; vertex passver[3] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-    passvert[0].x = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].x;
-    passvert[0].y = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].y;
-    passvert[0].z = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].z;
-    passvert[1].x = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].x;
-    passvert[1].y = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].y;
-    passvert[1].z = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].z;
-    passvert[2].x = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].x;
-    passvert[2].y = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].y;
-    passvert[2].z = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].z;
-
-    /*((float*)address)[blockIdx.x*18+0] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].x;
-    ((float*)address)[blockIdx.x*18+1] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].y;
-    ((float*)address)[blockIdx.x*18+2] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3]].z;
-    
-    ((float*)address)[blockIdx.x*18+3] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].x;
-    ((float*)address)[blockIdx.x*18+4] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].y;
-    ((float*)address)[blockIdx.x*18+5] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+1]].z;
-
-    ((float*)address)[blockIdx.x*18+6] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].x;
-    ((float*)address)[blockIdx.x*18+7] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].y;
-    ((float*)address)[blockIdx.x*18+8] = (*mdl).vertices[(*mdl).faces[blockIdx.x*3+2]].z;*/
-
-    passver[0].x = m.m[0][0] * passvert[0].x + m.m[0][1] * passvert[0].y + m.m[0][2] * passvert[0].z + m.m[0][3];
-    passver[0].y = m.m[1][0] * passvert[0].x + m.m[1][1] * passvert[0].y + m.m[1][2] * passvert[0].z + m.m[1][3];
-    passver[0].z = m.m[2][0] * passvert[0].x + m.m[2][1] * passvert[0].y + m.m[2][2] * passvert[0].z + m.m[2][3];
-
-    passver[1].x = m.m[0][0] * passvert[1].x + m.m[0][1] * passvert[1].y + m.m[0][2] * passvert[1].z + m.m[0][3];
-    passver[1].y = m.m[1][0] * passvert[1].x + m.m[1][1] * passvert[1].y + m.m[1][2] * passvert[1].z + m.m[1][3];
-    passver[1].z = m.m[2][0] * passvert[1].x + m.m[2][1] * passvert[1].y + m.m[2][2] * passvert[1].z + m.m[2][3];
-
-    passver[2].x = m.m[0][0] * passvert[2].x + m.m[0][1] * passvert[2].y + m.m[0][2] * passvert[2].z + m.m[0][3];
-    passver[2].y = m.m[1][0] * passvert[2].x + m.m[1][1] * passvert[2].y + m.m[1][2] * passvert[2].z + m.m[1][3];
-    passver[2].z = m.m[2][0] * passvert[2].x + m.m[2][1] * passvert[2].y + m.m[2][2] * passvert[2].z + m.m[2][3];
-
-    /*((float*)address)[blockIdx.x*18+0+9] = passver[0].x;
-    ((float*)address)[blockIdx.x*18+1+9] = passver[0].y;
-    ((float*)address)[blockIdx.x*18+2+9] = passver[0].z;
-    
-    ((float*)address)[blockIdx.x*18+3+9] = passver[1].x;
-    ((float*)address)[blockIdx.x*18+4+9] = passver[1].y;
-    ((float*)address)[blockIdx.x*18+5+9] = passver[1].z;
-
-    ((float*)address)[blockIdx.x*18+6+9] = passver[2].x;
-    ((float*)address)[blockIdx.x*18+7+9] = passver[2].y;
-    ((float*)address)[blockIdx.x*18+8+9] = passver[2].z;*/
-
-    if(passvert[0].z!=0){
-        passver[0].x = (passver[0].x/passver[0].z)*fovm + sw/2;
-        passver[0].y = (passver[0].y/passver[0].z)*fovm + sh/2;
-    }
-    if(passvert[1].z!=0){
-        passver[1].x = (passver[1].x/passver[1].z)*fovm + sw/2;
-        passver[1].y = (passver[1].y/passver[1].z)*fovm + sh/2;
-    }
-    if(passver[2].z!=0){
-        passver[2].x = (passver[2].x/passver[2].z)*fovm + sw/2;
-        passver[2].y = (passver[2].y/passver[2].z)*fovm + sh/2;
-    }
-
-    u32 thx;
-    u32 blx;
-    if(abs(passver[1].x-passver[0].x)>abs(passver[1].y-passver[0].y)){
-        thx = abs(passver[1].x-passver[0].x) +2;
-    }else{
-        thx = abs(passver[1].y-passver[0].y) +2;
-    }
-    if(abs(passver[2].x-passver[0].x)>abs(passver[2].y-passver[0].y)){
-        blx = abs(passver[2].x-passver[0].x) +2;
-    }else{
-        blx = abs(passver[2].y-passver[0].y) +2;
-    }
-    triangle<<<blx, thx>>>(address, 
-        {int(passver[0].x), int(passver[0].y), int((*mdl).uv[(*mdl).faces[blockIdx.x*3  ]*2]*255), int((*mdl).uv[(*mdl).faces[blockIdx.x*3  ]*2+1]*255), int(passver[0].z*1000000)},
-        {int(passver[1].x), int(passver[1].y), int((*mdl).uv[(*mdl).faces[blockIdx.x*3+1]*2]*255), int((*mdl).uv[(*mdl).faces[blockIdx.x*3+1]*2+1]*255), int(passver[1].z*1000000)},
-        {int(passver[2].x), int(passver[2].y), int((*mdl).uv[(*mdl).faces[blockIdx.x*3+2]*2]*255), int((*mdl).uv[(*mdl).faces[blockIdx.x*3+2]*2+1]*255), int(passver[2].z*1000000)},
-        image, imgW, imgH, zbuffer);
-}
+} // AFFINE TEXTURE MAPPING */
